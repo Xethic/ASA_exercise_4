@@ -13,35 +13,89 @@ def kmers(k, reads):
 			
 	return kmer
 
-
-def graph(kmers):
-	g = []
-
-	for k in kmers:
-		for j in kmers:
-			if k[1:] == j[:-1]:
-				g.append((k,j))		
-	return g
+	
+def find(kmerlist):	
+	assemb = []
+	
+	for key in kmerlist:
+		s = ""
+		found = True		
+		query = []		
+		start = key
+			 
+		s += start
 		
+		query.append(start)
+		
+		f = 0
+		
+		while len(query) != 0:
+			if not found:
+				if s not in assemb:
+					assemb.append(s)
+				s = query[-1]		
+			
+			first = query[-1][1:]
+			print first
+					
+			f = 0
+			s1 = first + "A"
+			s2 = first + "C"
+			s3 = first + "G"
+			s4 = first + "T"
+			
+			if s1 in kmerlist:
+				s += "A"
+				f += 1
+				found = True
+				query += [s1]
+			else:
+				found = False
+			if s2 in kmerlist:
+				if f == 0: 
+					s += "C"
+					f += 1
+					found = True
+					query += [s2]
+				else:
+					query += [s2]
+					found = True
+			else:
+				if f == 0:
+					found = False
+			if s3 in kmerlist:
+				if f == 0: 
+					s += "G"
+					f += 1
+					found = True
+					query += [s3]
+				else:
+					query += [s3]
+					found = True
+			else:
+				if f == 0:
+					found = False
+			if s4 in kmerlist:
+				if f == 0: 
+					s += "T"
+					f += 1
+					found = True
+					query += [s4]
+				else:
+					query += [s4]
+					found = True
+			else:
+				if f == 0:
+					found = False
+						
+			query.pop(0)
+			
+	
+		if s not in assemb:		
+			assemb.append(s)	
+	
 
-def route(g):
-	
-	seq = g[0][0]
-	
-	first = g[0][0]
-	
-	for i in range(len(g)):		
-		for node in g:
-			if node[1] == first:
-				seq += node[1][:-1]
-				first = node[0]
-				g.remove(node)
-	
-				
-	return seq
-		
-		
-	
+	return assemb
 	
 	
 #main
@@ -60,12 +114,10 @@ with open(str(sys.argv[1])) as f:
 		else:
 			reads.append(line[:-1])
 
-print reads
+k = 3
 
-kmerlist = kmers(8, reads)
-	
-g = graph(kmerlist)
+kmerlist = kmers(k, reads)
+print kmerlist
 
-print g
-
-print route(g)
+seq = find(kmerlist)
+print seq
