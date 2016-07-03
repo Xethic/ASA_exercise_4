@@ -14,6 +14,24 @@ def computekmers(k, reads):
 	return kmer
 
 
+#def addreverse(kmerlist):
+	
+def errorcorrect(kmerlist):
+	
+	error = []
+	
+	for k in kmerlist:
+		if kmerlist[k] == 1:
+			if k not in error:
+				error.append(k)
+	
+	for e in error:
+		del kmerlist[e]
+		
+	return kmerlist
+			
+	
+		
 	
 def getneighbor(node, kmers, k, currlen):
 	ns = node
@@ -66,6 +84,14 @@ assemb = []
 
 kmerlist = computekmers(k, reads)
 print kmerlist
+
+#kmerlist = addreverse(kmerlist)
+
+kmerlist = errorcorrect(kmerlist)
+print kmerlist
+
+if len(kmerlist) == 0:
+	exit()
 
 start = kmerlist.items()[0][0]
 print start
