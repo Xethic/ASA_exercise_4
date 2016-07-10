@@ -14,7 +14,7 @@ def reverseComplement(sequence):
 def addreverse(reads):
 	revreads = []
 	for read in reads:
-		revreads.append(reverseComplement(read))
+		revreads.append(reverseComplement(read)[::-1])
 	reads.extend(revreads)
 
 
@@ -65,30 +65,41 @@ def errorcorrect(reads, cutoff, k):
 			
 	
 def getneighbor(node, kmers, k):
-	ns = node
+	temp = dict(kmers)
+	
 	converged = False
+	olds1 = ""
+	olds2 = ""
 	while not converged:
-		s1 = ns[:k-1]
-		s2 = ns[-(k-1):]
+		s1 = node[:k-1]
+		s2 = node[-(k-1):]
+		#print s2
+		#print s1
 		found1 = False
 		found2 = False
-		oldlength = len(ns)
+		oldlength = len(node)
 		#print s1, s2
-		for c in ["A", "C", "G", "T"]:
+		for c in ['A', 'C', 'G', 'T']:
 			#print s2+c, c+s1
-			if s2+c in kmers:
-				if not found1:
-					ns += c
-					found1 = True
-			if c+s1 in kmers:
-				if not found2:
-					ns = c + ns
-					found2 = True
+			if s2+c in temp:
+				if not temp[s2+c] == 0:
+					if not found1:					
+						node += c
+						found1 = True
+						temp[s2+c] = 0
+	
+			if c+s1 in temp:
+				if not temp[c+s1] == 0:
+					if not found2:
+						node = c + node
+						found2 = True
+						temp[c+s1] = 0
 		
-		if oldlength == len(ns):
+		if oldlength == len(node):
 			converged = True
-		
-	return ns
+			
+				
+	return node
 
 
 def countKmersOfCountOne(kmers, k):
@@ -101,9 +112,12 @@ def countKmersOfCountOne(kmers, k):
 	
 	
 def assemble(kmers, k):
-	finals = set()
+	finals = []
 	for kmer in kmers:
-		finals.add(getneighbor(kmer, kmerlist, k))
+		f = getneighbor(kmer, kmerlist, k)
+		if f not in finals:
+			finals.append(f)
+		#exit()
 	return finals
 
 
@@ -129,7 +143,7 @@ with open(str(sys.argv[1])) as f:
 			reads.append(read)
 			readset.add(read)
 
-k = 21
+k = 15
 errorcutoff = 2
 assemb = []
 
@@ -138,6 +152,8 @@ addreverse(reads)
 errorcorrect(reads, errorcutoff, k)
 
 kmerlist = computekmers(k, reads)
+#print kmerlist
+
 print 'Generated ' + str(len(kmerlist)) + ' many ' + str(k) + '-mers'
 countKmersOfCountOne(kmerlist, k)
 
@@ -145,7 +161,13 @@ if len(kmerlist) == 0:
 	exit()
 
 finals = assemble(kmerlist, k)
+#print finals
 
-print str(len(finals))
-finals = list(finals)
-print str(max(finals))
+with open(str(sys.argv[2]), "w") as out:
+	for f in finals:
+		out.write(str(f)+"\n")
+		
+#print len(finals)
+#print max(finals)
+#finals = list(finals)
+#print str(max(finals))
