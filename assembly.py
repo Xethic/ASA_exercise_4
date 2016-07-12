@@ -1,6 +1,7 @@
 import sys
 from string import maketrans
 
+#function for compution of the reverse complement of a read
 alphabet = ['A', 'C', 'G', 'T']
 original = 'ACGT'
 complement = 'TGCA'
@@ -11,6 +12,7 @@ def getComplement(sequence):
 	return sequence.translate(revtable)
 
 
+#addition of the reverse complement of a read to the final list of reads
 def addreverse(reads):
 	revreads = []
 	for read in reads:
@@ -18,6 +20,8 @@ def addreverse(reads):
 	reads.extend(revreads)
 
 
+#computation of kmers of a read
+#stored in dictionary, kmer as key, coverage as value
 def computekmers(k, reads):
 	kmers = dict()
 	for r in reads:
@@ -29,6 +33,8 @@ def computekmers(k, reads):
 	return kmers
 	
 	
+#computation of the most similar sequence using hamming distance
+#the cutoff gives the maximum distance of the two sequences that is allowed
 def bestHammingNeighbor(v, cutoff, kmers):
 	bestSeq = v
 	bestCount = cutoff-1
@@ -44,6 +50,9 @@ def bestHammingNeighbor(v, cutoff, kmers):
 	return bestSeq
 	
 	
+#correction of the putative read errors
+#for each kmer with coverage 1, search for a sequence with hamming distance < cutoff
+#if there exist one with a higher coverage then the kmer is correcet by the better one 
 def errorcorrect(reads, cutoff, k):
 	
 	kmers = computekmers(k, reads)
@@ -61,6 +70,10 @@ def errorcorrect(reads, cutoff, k):
 	print 'Finished!'
 			
 	
+#searching for extensions of kmers
+#if there are more than one possible extension, the contig breaks and starts with each branch again as a start node
+#the dictionary dispatched stores the kmers that are used at most 5 times, otherwise the kmers are not used again for extension
+#returns the extended kmer
 def getneighbor(node, kmers, k, startnodes):
 	dispatched = dict()
 	converged = False
@@ -73,12 +86,15 @@ def getneighbor(node, kmers, k, startnodes):
 		rightextensions = []
 		for c in ['A', 'C', 'G', 'T']:
 			if (not breakright) and (s2+c in kmers):
-				if s2+c not in dispatched :
+				if s2+c not in dispatched or dispatched[s2+c] < 6:
 					rightextensions.append(c)
 		
 		if(len(rightextensions) == 1):
 			c = rightextensions[0]
-			dispatched[s2+c] = 1
+			if s2+c in dispatched:
+				dispatched[s2+c] += 1
+			else:
+				dispatched[s2+c] = 1
 			node += c
 		elif len(rightextensions) > 1:
 			for c in rightextensions:
@@ -91,7 +107,7 @@ def getneighbor(node, kmers, k, startnodes):
 				
 	return node
 
-
+#counting of the kmers that occur only once
 def countKmersOfCountOne(kmers, k):
 	count = 0
 	for kmer in kmers:
@@ -101,6 +117,8 @@ def countKmersOfCountOne(kmers, k):
 	print 'Found ' + str(count) + ' ' +str(k) + '-mers that were present once'
 
 
+#searching for nodes that can only be extended on the right site
+#stored as start nodes of finding neigbors
 def searchforstartnodes(kmers,k):
 	startnodes = []
 	for kmer in kmers:
@@ -115,8 +133,10 @@ def searchforstartnodes(kmers,k):
 			startnodes.append(kmer)
 	return startnodes
 
-	
-def assemble(kmers, k, maxrepeats):
+
+#for all startnode extensions are searched
+#if there is no more extension, the contigs are stored in a final list
+def assemble(kmers, k):
 	finals = []
 	count = 0
 	lastp = -10
@@ -146,10 +166,14 @@ def assemble(kmers, k, maxrepeats):
 #	second argument is the name of the output file
 #######
 def main():
-
+	if len(sys.argv) > 3:
+		print "Too many arguments, only two allowed!"
+		exit()
+		
 	reads = []
 	readset = set()
 
+	#reading of the input file of reads
 	with open(str(sys.argv[1])) as f:
 		duplicated = 0
 		count = 0
@@ -167,13 +191,15 @@ def main():
 					duplicated += 1
 				else:
 					readset.add(read)
-		#reads = list(readset)	
+		
 		print 'Parsed ' + str(count) + ' reads'
 		print 'Found ' + str(duplicated) +' duplicated reads'
 
-	k = 21
+	#used k for the kmers
+	k = 27
+	#cutoff for hamming distance
 	errorcutoff = 2
-	maxrepeats = 1
+	
 	assemb = []
 
 	addreverse(reads)
@@ -188,8 +214,9 @@ def main():
 	if len(kmerlist) == 0:
 		exit()
 
-	finals = assemble(kmerlist, k, maxrepeats)
+	finals = assemble(kmerlist, k)
 
+	#writing of the output file in a fasta format 
 	with open(str(sys.argv[2]), "w") as out:
 		count = 0
 		for f in finals:
