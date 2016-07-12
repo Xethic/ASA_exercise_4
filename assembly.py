@@ -19,17 +19,14 @@ def addreverse(reads):
 
 
 def computekmers(k, reads):
-	kmer = dict()
-	count = 0
+	kmers = dict()
 	for r in reads:
-		count+=1
 		for i in range(len(r)-k+1):
-			if r[i:i+k] in kmer:
-				kmer[r[i:i+k]] += 1
+			if r[i:i+k] in kmers:
+				kmers[r[i:i+k]] += 1
 			else:
-				kmer[r[i:i+k]] = 1
-	print 'Parsed ' + str(count) + ' reads'
-	return kmer
+				kmers[r[i:i+k]] = 1
+	return kmers
 	
 	
 def bestHammingNeighbor(v, cutoff, kmers):
@@ -64,38 +61,30 @@ def errorcorrect(reads, cutoff, k):
 	print 'Finished!'
 			
 	
-def getneighbor(node, kmers, k, dispatched, maxrepeats):
+def getneighbor(node, kmers, k, startnodes):
+	dispatched = dict()
 	converged = False
 	dispatched[node] = 1
 	breakright = False
-	breakleft = False
+	
 	while not converged:
-		s1 = node[:k-1]
 		s2 = node[-(k-1):]
 		oldlength = len(node)
 		rightextensions = []
-		leftextensions = []
 		for c in ['A', 'C', 'G', 'T']:
-			if (not breakright) and s2+c in kmers:
+			if (not breakright) and (s2+c in kmers):
 				if s2+c not in dispatched :
 					rightextensions.append(c)
-			if (not breakleft) and c+s1 in kmers:
-				if c+s1 not in dispatched :
-					leftextensions.append(c)
 		
 		if(len(rightextensions) == 1):
 			c = rightextensions[0]
 			dispatched[s2+c] = 1
 			node += c
 		elif len(rightextensions) > 1:
+			for c in rightextensions:
+				if s2+c not in startnodes:
+					startnodes.append(s2+c)
 			breakright = True
-		
-		if(len(leftextensions) == 1):
-			c = leftextensions[0]
-			dispatched[c+s1] = 1
-			node = c + node
-		elif len(leftextensions) > 1:
-			breakleft = True
 						
 		if oldlength == len(node):
 			converged = True
@@ -109,24 +98,41 @@ def countKmersOfCountOne(kmers, k):
 		if kmers[kmer] == 1:
 			count +=1
 	
-	print 'Found ' + str(count) + ' ' +str(k) + '-mers that were present once' 
-	
+	print 'Found ' + str(count) + ' ' +str(k) + '-mers that were present once'
+
+
+def searchforstartnodes(kmers,k):
+	startnodes = []
+	for kmer in kmers:
+		s1 = kmer[:k-1]
+		found = False
+		for c in ['A', 'C', 'G', 'T']:
+			if c+s1 in kmers:
+				found = True
+				break
+		
+		if not found:
+			startnodes.append(kmer)
+	return startnodes
+
 	
 def assemble(kmers, k, maxrepeats):
 	finals = []
-	total = len(kmers)
 	count = 0
 	lastp = -10
 	percentage = 0
-	dispatched = dict()
-	for kmer in kmers:
-		if(kmer not in dispatched):
-			f = getneighbor(kmer, kmerlist, k, dispatched, maxrepeats)
-			if f not in finals:
-				finals.append(f)
+	
+	startnodes = searchforstartnodes(kmers, k)
+	total = len(startnodes)
+	print 'Found ' + str(len(startnodes)) + ' start-nodes'
+	for kmer in startnodes:
+		total = len(startnodes)
+		f = getneighbor(kmer, kmers, k, startnodes)
+		if f not in finals:
+			finals.append(f)
 		count += 1
 		percentage = float(count)/float(total) * 100
-		if abs(percentage - lastp) >= 10:
+		if abs(percentage - lastp) >= 1:
 			lastp = percentage
 			print "{0:.0f}%".format(lastp)
 			
@@ -139,44 +145,56 @@ def assemble(kmers, k, maxrepeats):
 #	first argument is the input file*
 #	second argument is the name of the output file
 #######
+def main():
 
-reads = []
-readset = set()
+	reads = []
+	readset = set()
 
-with open(str(sys.argv[1])) as f:
-	for line in f:
-		if line == "\n":
-			break
-			
-		if line[0] == ">":
-			continue
-		else:
-			read = line.replace('\n', '')
-			reads.append(read)
-			readset.add(read)
+	with open(str(sys.argv[1])) as f:
+		duplicated = 0
+		count = 0
+		for line in f:
+			if line == "\n":
+				break
+				
+			if line[0] == ">":
+				continue
+			else:
+				read = line.replace('\n', '')
+				reads.append(read)
+				count += 1
+				if read in readset:
+					duplicated += 1
+				else:
+					readset.add(read)
+		#reads = list(readset)	
+		print 'Parsed ' + str(count) + ' reads'
+		print 'Found ' + str(duplicated) +' duplicated reads'
 
-k = 23
-errorcutoff = 2
-maxrepeats = 1
-assemb = []
+	k = 21
+	errorcutoff = 2
+	maxrepeats = 1
+	assemb = []
 
-addreverse(reads)
+	addreverse(reads)
 
-errorcorrect(reads, errorcutoff, k)
+	errorcorrect(reads, errorcutoff, k)
 
-kmerlist = computekmers(k, reads)
+	kmerlist = computekmers(k, reads)
 
-print 'Generated ' + str(len(kmerlist)) + ' many ' + str(k) + '-mers'
-countKmersOfCountOne(kmerlist, k)
+	print 'Generated ' + str(len(kmerlist.keys())) + ' many ' + str(k) + '-mers'
+	countKmersOfCountOne(kmerlist, k)
 
-if len(kmerlist) == 0:
-	exit()
+	if len(kmerlist) == 0:
+		exit()
 
-finals = assemble(kmerlist, k, maxrepeats)
+	finals = assemble(kmerlist, k, maxrepeats)
 
-with open(str(sys.argv[2]), "w") as out:
-	count = 0
-	for f in finals:
-		count += 1
-		out.write('> contig '+ str(count)+'\n')
-		out.write(str(f)+"\n")
+	with open(str(sys.argv[2]), "w") as out:
+		count = 0
+		for f in finals:
+			count += 1
+			out.write('> contig '+ str(count)+'\n')
+			out.write(str(f)+"\n")
+		
+main()
