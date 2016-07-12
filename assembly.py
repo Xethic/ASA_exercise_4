@@ -3,18 +3,18 @@ from string import maketrans
 
 alphabet = ['A', 'C', 'G', 'T']
 original = 'ACGT'
-reversecomplement = 'TGCA'
-revtable = maketrans(original, reversecomplement)
+complement = 'TGCA'
+revtable = maketrans(original, complement)
 
 
-def reverseComplement(sequence):
+def getComplement(sequence):
 	return sequence.translate(revtable)
 
 
 def addreverse(reads):
 	revreads = []
 	for read in reads:
-		revreads.append(reverseComplement(read)[::-1])
+		revreads.append(getComplement(read)[::-1])
 	reads.extend(revreads)
 
 
@@ -64,40 +64,41 @@ def errorcorrect(reads, cutoff, k):
 	print 'Finished!'
 			
 	
-def getneighbor(node, kmers, k):
-	temp = dict(kmers)
-	
+def getneighbor(node, kmers, k, dispatched, maxrepeats):
 	converged = False
-	olds1 = ""
-	olds2 = ""
+	dispatched[node] = 1
+	breakright = False
+	breakleft = False
 	while not converged:
 		s1 = node[:k-1]
 		s2 = node[-(k-1):]
-		#print s2
-		#print s1
-		found1 = False
-		found2 = False
 		oldlength = len(node)
-		#print s1, s2
+		rightextensions = []
+		leftextensions = []
 		for c in ['A', 'C', 'G', 'T']:
-			#print s2+c, c+s1
-			if s2+c in temp:
-				if not temp[s2+c] == 0:
-					if not found1:					
-						node += c
-						found1 = True
-						temp[s2+c] = 0
-	
-			if c+s1 in temp:
-				if not temp[c+s1] == 0:
-					if not found2:
-						node = c + node
-						found2 = True
-						temp[c+s1] = 0
+			if (not breakright) and s2+c in kmers:
+				if s2+c not in dispatched :
+					rightextensions.append(c)
+			if (not breakleft) and c+s1 in kmers:
+				if c+s1 not in dispatched :
+					leftextensions.append(c)
 		
+		if(len(rightextensions) == 1):
+			c = rightextensions[0]
+			dispatched[s2+c] = 1
+			node += c
+		elif len(rightextensions) > 1:
+			breakright = True
+		
+		if(len(leftextensions) == 1):
+			c = leftextensions[0]
+			dispatched[c+s1] = 1
+			node = c + node
+		elif len(leftextensions) > 1:
+			breakleft = True
+						
 		if oldlength == len(node):
 			converged = True
-			
 				
 	return node
 
@@ -111,13 +112,24 @@ def countKmersOfCountOne(kmers, k):
 	print 'Found ' + str(count) + ' ' +str(k) + '-mers that were present once' 
 	
 	
-def assemble(kmers, k):
+def assemble(kmers, k, maxrepeats):
 	finals = []
+	total = len(kmers)
+	count = 0
+	lastp = -10
+	percentage = 0
+	dispatched = dict()
 	for kmer in kmers:
-		f = getneighbor(kmer, kmerlist, k)
-		if f not in finals:
-			finals.append(f)
-		#exit()
+		if(kmer not in dispatched):
+			f = getneighbor(kmer, kmerlist, k, dispatched, maxrepeats)
+			if f not in finals:
+				finals.append(f)
+		count += 1
+		percentage = float(count)/float(total) * 100
+		if abs(percentage - lastp) >= 10:
+			lastp = percentage
+			print "{0:.0f}%".format(lastp)
+			
 	return finals
 
 
@@ -143,8 +155,9 @@ with open(str(sys.argv[1])) as f:
 			reads.append(read)
 			readset.add(read)
 
-k = 15
+k = 23
 errorcutoff = 2
+maxrepeats = 1
 assemb = []
 
 addreverse(reads)
@@ -152,7 +165,6 @@ addreverse(reads)
 errorcorrect(reads, errorcutoff, k)
 
 kmerlist = computekmers(k, reads)
-#print kmerlist
 
 print 'Generated ' + str(len(kmerlist)) + ' many ' + str(k) + '-mers'
 countKmersOfCountOne(kmerlist, k)
@@ -160,14 +172,11 @@ countKmersOfCountOne(kmerlist, k)
 if len(kmerlist) == 0:
 	exit()
 
-finals = assemble(kmerlist, k)
-#print finals
+finals = assemble(kmerlist, k, maxrepeats)
 
 with open(str(sys.argv[2]), "w") as out:
+	count = 0
 	for f in finals:
+		count += 1
+		out.write('> contig '+ str(count)+'\n')
 		out.write(str(f)+"\n")
-		
-#print len(finals)
-#print max(finals)
-#finals = list(finals)
-#print str(max(finals))
