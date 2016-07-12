@@ -196,7 +196,7 @@ def main():
 		print 'Found ' + str(duplicated) +' duplicated reads'
 
 	#used k for the kmers
-	k = 27
+	k = 25
 	#cutoff for hamming distance
 	errorcutoff = 2
 	
